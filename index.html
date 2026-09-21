@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CashMoney Admin</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#0b0b0d;color:#fff;font-family:Arial,sans-serif}.wrap{max-width:700px;margin:auto;padding:22px}
+h1{font-size:27px}label{display:block;margin:13px 0 6px;color:#aaa}input,textarea,select{width:100%;padding:13px;background:#15151b;border:1px solid #292932;color:#fff;border-radius:10px;outline:none}textarea{min-height:110px;resize:vertical}
+button{border:0;border-radius:10px;padding:13px 18px;cursor:pointer;font-weight:bold}.add{background:#fff;color:#000;margin-top:18px;width:100%}.list{margin-top:25px}.item{background:#15151b;border:1px solid #292932;border-radius:13px;padding:13px;margin:10px 0;display:flex;justify-content:space-between;gap:10px;align-items:center}.del{background:#3a1717;color:#fff}
+.note{color:#888;font-size:13px;line-height:1.7}
+</style>
+</head>
+<body><div class="wrap">
+<h1>لوحة إدارة CashMoney</h1>
+<div class="note">هذه النسخة تضيف المنشورات إلى Firebase. لا توجد فيها خانات كلمات مرور أو بيانات دخول.</div>
+<label>عنوان الإعلان</label><input id="title" placeholder="مثلاً: حساب كلاش مستوى 220">
+<label>القسم</label><select id="category"><option value="clash">كلاش أوف كلانس</option><option value="pubg">ببجي</option><option value="users">يوزرات</option></select>
+<label>السعر</label><input id="price" placeholder="مثلاً 150000">
+<label>العملة</label><input id="currency" value="د.ع">
+<label>صورة الإعلان</label><input id="imageFile" type="file" accept="image/*">
+<div id="preview" style="margin-top:10px;color:#888;font-size:13px"></div>
+<label>الوصف</label><textarea id="description" placeholder="تفاصيل المنتج..."></textarea>
+<label>رابط التواصل مع البائع</label><input id="contact" placeholder="رابط تيليجرام أو ديسكورد أو غيره">
+<button class="add" id="add">إضافة المنشور</button>
+<div id="msg" class="note"></div><div class="list" id="list"></div>
+</div>
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+import {getDatabase,ref,push,set,remove,onValue} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+import {getStorage,ref as storageRef,uploadBytes,getDownloadURL} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-storage.js";
+const firebaseConfig={apiKey:"AIzaSyAD0T212nN6Q4af8uLHnXFcbwFYvF01ALI",authDomain:"cashmoney-5da29.firebaseapp.com",databaseURL:"https://cashmoney-5da29-default-rtdb.firebaseio.com",projectId:"cashmoney-5da29",storageBucket:"cashmoney-5da29.appspot.com",messagingSenderId:"500937410646",appId:"1:500937410646:android:75c75c3141e4422a0913f7"};
+const app=initializeApp(firebaseConfig),db=getDatabase(app),storage=getStorage(app);
+const $=id=>document.getElementById(id);
+$("imageFile").onchange=()=>{
+ const f=$("imageFile").files[0];
+ $("preview").textContent=f ? "تم اختيار: "+f.name : "";
+};
+
+$("add").onclick=async()=>{
+ try{
+  const file=$("imageFile").files[0];
+  const p={title:$("title").value.trim(),category:$("category").value,price:$("price").value.trim(),currency:$("currency").value.trim(),description:$("description").value.trim(),contact:$("contact").value.trim(),status:"available",createdAt:Date.now()};
+  if(!p.title||!p.price){$("msg").textContent="اكتب العنوان والسعر";return}
+  if(!file){$("msg").textContent="اختر صورة من المعرض";return}
+  if(!file.type.startsWith("image/")){ $("msg").textContent="الملف يجب أن يكون صورة"; return; }
+  $("add").disabled=true;
+  $("msg").textContent="جاري رفع الصورة...";
+  const fileRef=storageRef(storage,"products/"+Date.now()+"_"+file.name.replace(/[^a-zA-Z0-9._-]/g,"_"));
+  await uploadBytes(fileRef,file);
+  p.image=await getDownloadURL(fileRef);
+  await set(push(ref(db,"products")),p);
+  $("msg").textContent="تمت إضافة المنشور والصورة بنجاح";
+  ["title","price","description","contact"].forEach(x=>$(x).value="");
+  $("imageFile").value=""; $("preview").textContent="";
+ }catch(e){$("msg").textContent="حدث خطأ: "+e.message}
+ $("add").disabled=false;
+};
+onValue(ref(db,"products"),s=>{
+ $("list").innerHTML="";
+ s.forEach(x=>{let p=x.val();let d=document.createElement("div");d.className="item";d.innerHTML=`<span>${p.title||""} — ${p.price||""} ${p.currency||"د.ع"}</span><button class="del">حذف</button>`;d.querySelector("button").onclick=async()=>{if(confirm("حذف المنشور؟"))await remove(ref(db,"products/"+x.key))};$("list").appendChild(d)});
+});
+</script></body></html>
